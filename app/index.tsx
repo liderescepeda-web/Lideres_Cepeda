@@ -10,22 +10,34 @@ import { colors } from '@/theme/theme';
  * a la landing principal (web-landing). Si está autenticado, al área privada.
  * En móvil (sin web-landing) va directo al login.
  */
+// ¿La landing vive en OTRO dominio? Si la landingUrl es este mismo host (o no es
+// una URL válida), NO redirigimos (evita el bucle infinito app→app).
+function landingIsExternal(): boolean {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  try {
+    return new URL(env.landingUrl).host !== window.location.host;
+  } catch {
+    return false;
+  }
+}
+
 export default function Index() {
   const { isAuthenticated, initializing } = useAuth();
 
   useEffect(() => {
     if (initializing || isAuthenticated || Platform.OS !== 'web' || typeof window === 'undefined') return;
-    // Solo redirige desde la raíz exacta (no toca /login, /register, /r/[slug], etc.)
     const p = window.location.pathname;
-    if (p === '/' || p === '' || p === '/index') {
+    if ((p === '/' || p === '' || p === '/index') && landingIsExternal()) {
       window.location.replace(env.landingUrl);
     }
   }, [initializing, isAuthenticated]);
 
   if (initializing) return <Splash />;
   if (isAuthenticated) return <Redirect href="/(app)" />;
-  if (Platform.OS !== 'web') return <Redirect href="/(auth)/login" />;
-  return <Splash />; // mientras redirige a la landing en web
+  // Sin sesión: si la landing está en otro dominio (web), redirige allá;
+  // si no, este dominio ES la app → al login (sin bucle).
+  if (Platform.OS !== 'web' || !landingIsExternal()) return <Redirect href="/(auth)/login" />;
+  return <Splash />; // redirigiendo a la landing externa
 }
 
 function Splash() {
