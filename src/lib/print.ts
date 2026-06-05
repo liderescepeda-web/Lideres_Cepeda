@@ -93,8 +93,8 @@ export function buildCarnetBothHtml(d: CarnetData): string {
     .lbl { font-size:11px; font-weight:800; letter-spacing:1px; color:#7A7480; text-transform:uppercase; align-self:flex-start; margin-left:4px; }
     .card { width: 340px; height: 214px; border-radius: 16px; overflow: hidden; color:#fff; position: relative; padding:16px;
       box-shadow: 0 8px 24px rgba(0,0,0,.18); }
-    .front { background: linear-gradient(135deg, ${PURPLE} 0%, ${PURPLE_DARK} 100%); }
-    .back  { background: linear-gradient(160deg, ${PURPLE_DARK} 0%, ${PURPLE} 60%, ${AMBER} 220%); display:flex; flex-direction:column; }
+    .front { background: linear-gradient(135deg, #5C2E8A 0%, #3F1E63 100%); }
+    .back  { background: linear-gradient(160deg, #3F1E63 0%, #5C2E8A 60%, ${AMBER} 240%); display:flex; flex-direction:column; }
     .top { display:flex; justify-content:space-between; align-items:flex-start; }
     .brand { font-size:18px; font-weight:900; letter-spacing:-.5px; }
     .brand small { display:block; font-size:9px; font-weight:700; color:${AMBER}; letter-spacing:.5px; }
