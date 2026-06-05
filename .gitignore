@@ -31,7 +31,20 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# secretos locales de Claude Code (tokens/keys) — NUNCA subir
+.claude/settings.local.json
+.claude/_claude_tmp_lc/
+
+# logs locales
+*.log
+expo-web.log
+
+# build de las webs (Vite)
+web-landing/dist/
+web-experience/dist/
 
 # typescript
 *.tsbuildinfo

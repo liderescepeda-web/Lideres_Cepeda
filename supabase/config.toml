@@ -1,0 +1,14 @@
+project_id = "lideres-cepeda"
+
+[functions.chat]
+verify_jwt = true
+
+[functions.fact-check]
+verify_jwt = true
+
+[functions.ingest-document]
+verify_jwt = true
+
+# Chat público (sin login) para la landing — límite de 5 preguntas en el cliente
+[functions.public-chat]
+verify_jwt = false

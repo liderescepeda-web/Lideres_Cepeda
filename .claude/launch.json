@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "web"],
+      "port": 8081
+    },
+    {
+      "name": "experiencia",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web-experience", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web-landing", "run", "dev"],
+      "port": 5174
+    }
+  ]
+}
