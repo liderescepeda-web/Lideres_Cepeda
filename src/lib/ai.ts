@@ -24,6 +24,15 @@ export async function sendChat(params: {
   return data;
 }
 
+/** Transcribe una nota de voz (audio en base64) a texto vía la Edge Function `transcribe`. */
+export async function transcribeVoice(audioBase64: string, mimeType: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke<{ text: string }>('transcribe', {
+    body: { audioBase64, mimeType },
+  });
+  if (error) throw new Error(await readError(error));
+  return (data?.text ?? '').trim();
+}
+
 export interface FactCheckResult {
   claim: string;
   verdict: Verdict;

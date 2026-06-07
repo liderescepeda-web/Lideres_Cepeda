@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
 import { MarkdownText } from '@/components/MarkdownText';
+import { useVoiceNote } from '@/lib/useVoiceNote';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { sendChat, type AssistantKind, type ChatResponse } from '@/lib/ai';
@@ -69,6 +70,12 @@ export default function ChatScreen() {
   const [edit, setEdit] = useState<null | 'title' | 'project'>(null);
   const [editVal, setEditVal] = useState('');
   const listRef = useRef<FlatList<Msg>>(null);
+
+  // Nota de voz: graba y transcribe a texto en el cuadro de escritura
+  const voice = useVoiceNote(
+    (text) => setInput((prev) => (prev ? prev.trim() + ' ' : '') + text),
+    (msg) => setMessages((m) => [...m, { id: uid(), role: 'assistant', content: `🎤 ${msg}` }]),
+  );
 
   const loadSessions = useCallback(async () => {
     if (!profile?.id) return;
@@ -346,12 +353,22 @@ export default function ChatScreen() {
           <Pressable style={styles.attachBtn} onPress={pickAttachments}>
             <Ionicons name="add" size={22} color={colors.primary} />
           </Pressable>
+          <Pressable
+            style={[styles.micBtn, voice.recording ? styles.micBtnRec : null]}
+            onPress={() => (voice.recording ? voice.stop() : voice.start())}
+            disabled={voice.transcribing || loading}
+          >
+            {voice.transcribing
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <Ionicons name={voice.recording ? 'stop' : 'mic'} size={20} color={voice.recording ? colors.white : colors.primary} />}
+          </Pressable>
           <TextInput
             style={styles.input}
-            placeholder="Escribe o adjunta fotos/documentos…"
+            placeholder={voice.recording ? 'Grabando… toca ⏹ para transcribir' : voice.transcribing ? 'Transcribiendo tu voz…' : 'Escribe, habla 🎤 o adjunta…'}
             placeholderTextColor={colors.textSubtle}
             value={input}
             onChangeText={setInput}
+            editable={!voice.recording && !voice.transcribing}
             multiline
             onSubmitEditing={() => send(input)}
           />
@@ -509,6 +526,8 @@ const styles = StyleSheet.create({
   attachRow: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, alignItems: 'center' },
   attachChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.primarySoft, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   attachBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  micBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  micBtnRec: { backgroundColor: colors.danger },
   inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   input: { flex: 1, backgroundColor: colors.background, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, maxHeight: 120, color: colors.text, fontSize: 16, fontFamily: fonts.regular },
   sendBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },

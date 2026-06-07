@@ -4,11 +4,21 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   APP_URL, EXPERIENCE_URL, PACTO, PROPUESTAS, IAS, FLOWS, DEPARTAMENTOS, LEADERS, daysLeft,
-  askChat, FREE_LIMIT, getFreeCount, incFreeCount, readSupabaseSession,
+  askChat, transcribeAudio, FREE_LIMIT, getFreeCount, incFreeCount, readSupabaseSession,
   fetchPublicLeaderboard, fetchDeptTotals,
   type Propuesta, type IA, type FlowOpt, type LandingSession, type Leader, type Citation,
 } from './data';
 import { ColombiaMap } from './ColombiaMap';
+
+/** Convierte un Blob de audio a base64 (sin el prefijo data:). */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
 
 /** Burbuja de IA con Markdown enriquecido (tablas, listas, enlaces) + fuentes. */
 function AiMessage({ text, citations }: { text: string; citations?: Citation[] }) {
@@ -105,10 +115,62 @@ function ChatLive({ aiIdx, setAiIdx, pending, onPendingConsumed }: { aiIdx: numb
   const [attach, setAttach] = useState<{ kind: 'image' | 'text'; name: string; base64?: string; mime?: string; text?: string } | null>(null);
   const [step, setStep] = useState<'choose' | 'follow' | 'chat'>('choose');
   const [intake, setIntake] = useState('');
+  const [fullscreen, setFullscreen] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => { setCount(getFreeCount()); }, []);
+  // Bloquea el scroll del fondo y permite salir con Esc en pantalla completa
+  useEffect(() => {
+    if (!fullscreen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+  }, [fullscreen]);
+
+  // ---- Notas de voz: grabar y transcribir ----
+  async function startRec() {
+    if (loading || transcribing) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
+        if (!blob.size) return;
+        setTranscribing(true);
+        try {
+          const base64 = await blobToBase64(blob);
+          const { text, error } = await transcribeAudio(base64, blob.type || 'audio/webm');
+          if (error || !text.trim()) {
+            setMsgs((m) => [...m, { role: 'ai', text: '🎤 No pude entender el audio. Intenta de nuevo, más cerca del micrófono.' }]);
+          } else {
+            setInput((prev) => (prev ? prev.trim() + ' ' : '') + text.trim());
+          }
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mr.start();
+      recRef.current = mr;
+      setRecording(true);
+    } catch {
+      setMsgs((m) => [...m, { role: 'ai', text: '🎤 No pude acceder al micrófono. Revisa los permisos del navegador y vuelve a intentar.' }]);
+    }
+  }
+  function stopRec() {
+    recRef.current?.stop();
+    recRef.current = null;
+    setRecording(false);
+  }
   useEffect(() => { bodyRef.current?.scrollTo({ top: 1e6, behavior: 'smooth' }); }, [msgs, loading, step]);
   function resetFlow() {
     setStep('choose'); setIntake(''); setInput(''); setAttach(null);
@@ -184,11 +246,19 @@ function ChatLive({ aiIdx, setAiIdx, pending, onPendingConsumed }: { aiIdx: numb
   }
 
   return (
-    <motion.div className="chat" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+    <motion.div className={'chat' + (fullscreen ? ' full' : '')} initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
       <div className="top">
         <Avatar src={cur.img} emoji={cur.icon} color={cur.color} />
         <div className="who">{cur.name}<small>{cur.role} · gratis</small></div>
         <div className="live">{gated ? '0 gratis' : `${left} gratis`}</div>
+        <button
+          className="fsbtn"
+          onClick={() => setFullscreen((v) => !v)}
+          aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          title={fullscreen ? 'Tamaño normal' : 'Pantalla completa'}
+        >
+          {fullscreen ? '🗗' : '⛶'}
+        </button>
       </div>
       <div className="body" ref={bodyRef}>
         {msgs.map((m, i) => m.role === 'ai'
@@ -227,11 +297,20 @@ function ChatLive({ aiIdx, setAiIdx, pending, onPendingConsumed }: { aiIdx: numb
           )}
           <div className="inputrow">
             <button className="attachbtn" onClick={() => fileRef.current?.click()} aria-label="Subir documento" title="Subir documento o foto">📎</button>
-            <input value={input} disabled={loading} autoFocus
+            <button
+              className={'micbtn' + (recording ? ' rec' : '')}
+              onClick={() => (recording ? stopRec() : startRec())}
+              disabled={loading || transcribing}
+              aria-label={recording ? 'Detener grabación' : 'Grabar nota de voz'}
+              title={recording ? 'Detener y transcribir' : 'Grabar nota de voz'}
+            >
+              {recording ? '⏹' : '🎤'}
+            </button>
+            <input value={input} disabled={loading || recording || transcribing} autoFocus
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
-              placeholder={step === 'follow' ? 'Escribe tu respuesta…' : 'Escribe o sube un documento…'} />
-            <button onClick={() => send()} disabled={loading || (!input.trim() && !attach)} aria-label="Enviar">➤</button>
+              placeholder={recording ? 'Grabando… toca ⏹ para transcribir' : transcribing ? 'Transcribiendo tu voz…' : step === 'follow' ? 'Escribe o habla tu respuesta…' : 'Escribe, habla 🎤 o sube un documento…'} />
+            <button onClick={() => send()} disabled={loading || recording || transcribing || (!input.trim() && !attach)} aria-label="Enviar">➤</button>
           </div>
           <input type="file" ref={fileRef} hidden accept="image/*,.txt,.md,.csv,.json" onChange={onFile} />
         </>

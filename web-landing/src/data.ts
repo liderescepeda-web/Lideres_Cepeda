@@ -109,6 +109,22 @@ export async function askChat(
   }
 }
 
+/** Transcribe una nota de voz (base64) a texto vía la Edge Function `transcribe`. */
+export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<{ text: string; error?: string }> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      body: JSON.stringify({ audioBase64, mimeType }),
+    });
+    const j = await r.json();
+    if (!r.ok || j.error) return { text: '', error: j.error || `HTTP ${r.status}` };
+    return { text: String(j.text ?? '') };
+  } catch (e) {
+    return { text: '', error: String(e) };
+  }
+}
+
 /** ---- Sesión de Supabase (compartida con la app si están en el mismo dominio) ----
  * Lee el token que guarda supabase-js en localStorage (clave `sb-<ref>-auth-token`),
  * sin añadir el SDK. Devuelve datos básicos del usuario o null. */

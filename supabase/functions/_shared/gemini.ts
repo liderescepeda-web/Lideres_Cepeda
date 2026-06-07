@@ -118,6 +118,23 @@ export async function generate(parts: Part[], opts: GenerateOpts = {}): Promise<
   }
 }
 
+/**
+ * Transcribe audio a texto usando Gemini (multimodal).
+ * Solo Gemini: DeepSeek no procesa audio. `mimeType` p.ej. 'audio/webm', 'audio/m4a', 'audio/mp4'.
+ */
+export async function transcribeAudio(base64: string, mimeType: string): Promise<string> {
+  const parts: Part[] = [
+    {
+      text:
+        'Transcribe este audio al español exactamente como se dice. ' +
+        'Devuelve ÚNICAMENTE la transcripción, sin comillas, sin comentarios ni encabezados. ' +
+        'Si el audio está vacío o es inaudible, responde con una cadena vacía.',
+    },
+    { inlineData: { mimeType, data: base64 } },
+  ];
+  return geminiGenerate(parts, { temperature: 0, maxTokens: 1024 });
+}
+
 /** Divide texto largo en fragmentos para RAG (por párrafos, ~1200 chars). */
 export function chunkText(text: string, maxChars = 1200): string[] {
   const paras = text
