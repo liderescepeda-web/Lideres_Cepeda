@@ -1,12 +1,42 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   APP_URL, EXPERIENCE_URL, PACTO, PROPUESTAS, IAS, FLOWS, DEPARTAMENTOS, LEADERS, daysLeft,
   askChat, FREE_LIMIT, getFreeCount, incFreeCount, readSupabaseSession,
   fetchPublicLeaderboard, fetchDeptTotals,
-  type Propuesta, type IA, type FlowOpt, type LandingSession, type Leader,
+  type Propuesta, type IA, type FlowOpt, type LandingSession, type Leader, type Citation,
 } from './data';
 import { ColombiaMap } from './ColombiaMap';
+
+/** Burbuja de IA con Markdown enriquecido (tablas, listas, enlaces) + fuentes. */
+function AiMessage({ text, citations }: { text: string; citations?: Citation[] }) {
+  return (
+    <div className="bubble ai">
+      <div className="md">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{ a: (props) => <a {...props} target="_blank" rel="noreferrer" /> }}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+      {citations && citations.length > 0 ? (
+        <div className="sources">
+          <span className="srctitle">Fuentes</span>
+          {citations.slice(0, 4).map((c, i) =>
+            c.url ? (
+              <a key={i} className="srclink" href={c.url} target="_blank" rel="noreferrer">🔗 {c.title}</a>
+            ) : (
+              <span key={i} className="srclink">• {c.title}</span>
+            ),
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /** Avatar con imagen real y fallback a emoji si el archivo aún no existe. */
 function Avatar({ src, emoji, color, size = 40, radius = 12 }: { src: string; emoji: string; color: string; size?: number; radius?: number }) {
@@ -68,7 +98,7 @@ function ChatLive({ aiIdx, setAiIdx, pending, onPendingConsumed }: { aiIdx: numb
   const persona = cur.id; // salud | abogado | beneficios | comparador | verificador
   const flow = FLOWS[cur.id];
 
-  const [msgs, setMsgs] = useState<{ role: 'ai' | 'user'; text: string }[]>([]);
+  const [msgs, setMsgs] = useState<{ role: 'ai' | 'user'; text: string; citations?: Citation[] }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [count, setCount] = useState(0);
@@ -149,7 +179,7 @@ function ChatLive({ aiIdx, setAiIdx, pending, onPendingConsumed }: { aiIdx: numb
     });
     setLoading(false);
     setAttach(null);
-    setMsgs((m) => [...m, { role: 'ai', text: res.error ? `⚠️ ${res.error}` : res.answer }]);
+    setMsgs((m) => [...m, { role: 'ai', text: res.error ? `⚠️ ${res.error}` : res.answer, citations: res.citations }]);
     setCount(incFreeCount());
   }
 
@@ -161,7 +191,9 @@ function ChatLive({ aiIdx, setAiIdx, pending, onPendingConsumed }: { aiIdx: numb
         <div className="live">{gated ? '0 gratis' : `${left} gratis`}</div>
       </div>
       <div className="body" ref={bodyRef}>
-        {msgs.map((m, i) => <div key={i} className={'bubble ' + m.role}>{m.text}</div>)}
+        {msgs.map((m, i) => m.role === 'ai'
+          ? <AiMessage key={i} text={m.text} citations={m.citations} />
+          : <div key={i} className="bubble user">{m.text}</div>)}
         {loading && <div className="bubble ai"><span className="cursor" /> escribiendo…</div>}
         {gated && (
           <div className="gate">

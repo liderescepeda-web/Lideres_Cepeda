@@ -16,7 +16,9 @@ const PERSONAS: Record<string, string> = {
 };
 
 const RULES = `
-Reglas: responde en español claro y cálido; usa SOLO el contexto para hechos/cifras/propuestas y, si no alcanza, dilo con honestidad sin inventar; eres una IA (no un profesional); sé breve (máx ~120 palabras). Cuando sea útil, invita a participar el 21 de junio y a crear una cuenta gratis para guardar tus chats.`;
+Reglas: responde en español claro y cálido; usa SOLO el contexto para hechos/cifras/propuestas y, si no alcanza, dilo con honestidad sin inventar; eres una IA (no un profesional).
+FORMATO PROFESIONAL EN MARKDOWN: usa **negritas** para lo clave, listas para pasos/requisitos, y **TABLAS** (| Columna | Columna |) para comparar opciones, mostrar cifras o requisitos (útil en salud, beneficios y comparador). Si el contexto trae fuentes con URL, enlázalas con [texto](url). Sé claro y completo pero sin divagar (máx ~220 palabras).
+Cuando sea útil, invita a participar el 21 de junio y a crear una cuenta gratis para guardar tus chats.`;
 
 Deno.serve(async (req) => {
   const pre = handleOptions(req);

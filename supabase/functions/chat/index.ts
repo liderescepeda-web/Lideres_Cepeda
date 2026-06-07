@@ -27,6 +27,7 @@ Reglas:
 - Usa SOLO la información del CONTEXTO para afirmaciones de hechos, cifras o propuestas. Si el contexto no alcanza, dilo con honestidad y no inventes.
 - Sé riguroso: la campaña denuncia desinformación, así que tú no puedes fallar en los hechos.
 - Eres una IA, no un profesional. En temas legales o de salud, orienta y recomienda acudir a un experto.
+- FORMATO PROFESIONAL EN MARKDOWN: usa **negritas** para lo clave; listas con viñetas para pasos, requisitos o derechos; y **TABLAS** (| Columna | Columna |) para comparar opciones, mostrar cifras/estadísticas, requisitos o pasos. En salud, legal o beneficios, organiza con encabezados (##) y tablas cuando aclare. Si el CONTEXTO trae fuentes con URL, enlázalas con [texto](url) para que la persona pueda verificar. Sé completo pero ordenado.
 - Termina, cuando sea útil, motivando a participar el 21 de junio.`;
 
 Deno.serve(async (req) => {

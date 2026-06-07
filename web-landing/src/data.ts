@@ -89,10 +89,12 @@ export interface AskOpts {
   intake?: string;
 }
 
+export interface Citation { title: string; url?: string }
+
 export async function askChat(
   message: string,
   opts: AskOpts = {},
-): Promise<{ answer: string; error?: string }> {
+): Promise<{ answer: string; citations?: Citation[]; error?: string }> {
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/public-chat`, {
       method: 'POST',
@@ -101,7 +103,7 @@ export async function askChat(
     });
     const j = await r.json();
     if (!r.ok || j.error) return { answer: '', error: j.error || `HTTP ${r.status}` };
-    return { answer: j.answer };
+    return { answer: j.answer, citations: Array.isArray(j.citations) ? j.citations : undefined };
   } catch (e) {
     return { answer: '', error: String(e) };
   }
