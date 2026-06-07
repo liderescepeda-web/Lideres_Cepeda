@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, AppText, Card, Badge } from '@/components/ui';
+import { MarkdownText } from '@/components/MarkdownText';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { colors, spacing, radius, fontWeight } from '@/theme/theme';
@@ -225,9 +226,11 @@ export default function CasosScreen() {
                         style={[styles.msgRow, m.role === 'user' ? styles.msgRight : styles.msgLeft]}
                       >
                         <View style={[styles.msgBubble, m.role === 'user' ? styles.msgUser : styles.msgAi]}>
-                          <AppText style={{ color: m.role === 'user' ? colors.white : colors.text, fontSize: 14 }}>
-                            {m.content}
-                          </AppText>
+                          {m.role === 'user' ? (
+                            <AppText style={{ color: colors.white, fontSize: 14 }}>{m.content}</AppText>
+                          ) : (
+                            <MarkdownText compact>{m.content}</MarkdownText>
+                          )}
                         </View>
                       </View>
                     ))

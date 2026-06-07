@@ -6,9 +6,9 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/ui';
+import { MarkdownText } from '@/components/MarkdownText';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { sendChat, type AssistantKind, type ChatResponse } from '@/lib/ai';
@@ -460,9 +460,7 @@ function Bubble({ msg }: { msg: Msg }) {
         {isUser ? (
           <AppText style={{ color: colors.white }}>{msg.content}</AppText>
         ) : (
-          <Markdown style={mdStyles} onLinkPress={(url) => { Linking.openURL(url).catch(() => {}); return false; }}>
-            {msg.content}
-          </Markdown>
+          <MarkdownText>{msg.content}</MarkdownText>
         )}
         {msg.citations && msg.citations.length > 0 ? (
           <View style={styles.cites}>
@@ -480,25 +478,6 @@ function Bubble({ msg }: { msg: Msg }) {
     </View>
   );
 }
-
-const mdStyles = {
-  body: { color: colors.text, fontSize: 15, lineHeight: 22, fontFamily: fonts.regular },
-  heading2: { fontSize: 16, fontWeight: '800' as const, color: colors.primary, marginTop: 8, marginBottom: 4, fontFamily: fonts.extrabold },
-  heading3: { fontSize: 15, fontWeight: '700' as const, color: colors.primary, marginTop: 6, marginBottom: 4, fontFamily: fonts.bold },
-  strong: { fontWeight: '800' as const, color: colors.text, fontFamily: fonts.extrabold },
-  link: { color: colors.info, textDecorationLine: 'underline' as const, fontFamily: fonts.semibold },
-  bullet_list: { marginVertical: 4 },
-  ordered_list: { marginVertical: 4 },
-  list_item: { marginVertical: 1 },
-  code_inline: { backgroundColor: colors.primarySoft, color: colors.primaryDark, borderRadius: 4, paddingHorizontal: 4, fontSize: 13 },
-  blockquote: { backgroundColor: colors.primarySoft, borderLeftColor: colors.primary, borderLeftWidth: 3, paddingHorizontal: 10, paddingVertical: 2, marginVertical: 4 },
-  table: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginVertical: 6, overflow: 'hidden' as const },
-  thead: { backgroundColor: colors.primarySoft },
-  th: { padding: 6, fontWeight: '800' as const, color: colors.primaryDark },
-  tr: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  td: { padding: 6, fontSize: 13 },
-  image: { borderRadius: 8, marginVertical: 6 },
-};
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
