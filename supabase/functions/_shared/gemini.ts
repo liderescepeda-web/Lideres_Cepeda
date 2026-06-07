@@ -38,38 +38,84 @@ interface GenerateOpts {
   maxTokens?: number;
 }
 
-export async function generate(
-  parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }>,
-  opts: GenerateOpts = {},
-): Promise<string> {
+type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
+
+// ---- Proveedor 1: Gemini (multimodal) ----
+async function geminiGenerate(parts: Part[], opts: GenerateOpts): Promise<string> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts }],
     generationConfig: {
       temperature: opts.temperature ?? 0.4,
       maxOutputTokens: opts.maxTokens ?? 1024,
-      // Desactiva el "thinking" de 2.5-flash → respuestas rápidas y económicas
       thinkingConfig: { thinkingBudget: 0 },
       ...(opts.json ? { responseMimeType: 'application/json' } : {}),
     },
   };
-  if (opts.system) {
-    body.systemInstruction = { parts: [{ text: opts.system }] };
-  }
+  if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
 
-  const res = await fetch(
-    `${API}/models/${GEN_MODEL}:generateContent?key=${key()}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) throw new Error(`generate ${res.status}: ${await res.text()}`);
+  const res = await fetch(`${API}/models/${GEN_MODEL}:generateContent?key=${key()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`gemini ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts
-    ?.map((p: { text?: string }) => p.text ?? '')
-    .join('') ?? '';
+  const text = data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
+  if (!text.trim()) throw new Error('gemini: respuesta vacía');
   return text.trim();
+}
+
+// ---- Proveedor 2 (respaldo): DeepSeek (compatible OpenAI, solo texto) ----
+const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_MODEL = 'deepseek-chat';
+
+function partsToText(parts: Part[]): string {
+  return parts
+    .map((p) => ('text' in p ? p.text : '[imagen adjunta: no analizable por el modelo de respaldo]'))
+    .join('\n')
+    .trim();
+}
+
+async function deepseekGenerate(parts: Part[], opts: GenerateOpts): Promise<string> {
+  const k = Deno.env.get('DEEPSEEK_API_KEY');
+  if (!k) throw new Error('no hay DEEPSEEK_API_KEY');
+  const messages: Array<{ role: string; content: string }> = [];
+  if (opts.system) messages.push({ role: 'system', content: opts.system });
+  messages.push({ role: 'user', content: partsToText(parts) || 'Responde.' });
+
+  const res = await fetch(DEEPSEEK_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${k}` },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages,
+      temperature: opts.temperature ?? 0.4,
+      max_tokens: opts.maxTokens ?? 1024,
+      ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+    }),
+  });
+  if (!res.ok) throw new Error(`deepseek ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const text = (data.choices?.[0]?.message?.content ?? '').toString().trim();
+  if (!text) throw new Error('deepseek: respuesta vacía');
+  return text;
+}
+
+/**
+ * Router con fallback: intenta Gemini; si falla (cuota/demanda/error), usa DeepSeek.
+ * Así la IA sigue respondiendo aunque un proveedor esté caído o saturado.
+ */
+export async function generate(parts: Part[], opts: GenerateOpts = {}): Promise<string> {
+  try {
+    return await geminiGenerate(parts, opts);
+  } catch (geminiErr) {
+    console.warn('[router] Gemini falló, intentando DeepSeek:', String(geminiErr));
+    try {
+      return await deepseekGenerate(parts, opts);
+    } catch (deepseekErr) {
+      throw new Error(`Ambos proveedores fallaron. Gemini: ${String(geminiErr)} | DeepSeek: ${String(deepseekErr)}`);
+    }
+  }
 }
 
 /** Divide texto largo en fragmentos para RAG (por párrafos, ~1200 chars). */
